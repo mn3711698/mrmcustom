@@ -1,80 +1,25 @@
-# 本项目不再维护，请转到 https://github.com/mn3711698/mrm
+# mrmcustom(支持windows+linux,交易所目前只支持币安,只支持单币及单向持仓运行)
 
-# singlecoin(支持windows+linux,交易所目前只支持币安,目前只支持单币运行)
-## 注:执行RunBTC.py有多币，此为单币,多币不提供白嫖
+# 本项目只是为了方便有一定开发能力的兄弟自行接入定制自有系统，如需开箱即用请转到 https://github.com/mn3711698/mrm
+
 ## 非开源，慎用! 一定要加群,因为如果持仓情况与Tv的不同，那就肯定是亏损的
 
-# 执行Start.py(熊市牛B)目前只支持BNB,ETH
 
-# 执行RunBTC.py(牛市牛B)只支持BTCUSDT,YFIUSDT(别看下边的图有ZECUSDT直接用，参数不一样的).这个没有止损，要扛单注意仓位风险，也可以自己加止损 
-## 注：特别提醒，执行RunBTC.py的代码我是直接搬过来，因为我跑的是多币，这里是单币代码我没有实际跑。虽然这个效果好，但只是单币，所以我搞了多币，每个币单少，但二十多个币算下来单不少了。
+# 机器人逻辑及运行说明
 
-# 策略计算及下单平仓条件说明(为执行Start.py,执行RunBTC.py不提供说明)
+运行：python Run.py脚本
 
-两条移动线，对比两个线的值。在配置里line_poor,line_poor_stop,两个参数。当两个移动线的值相差大于line_poor，表示趋势明显向下或向上，要下单，当两个值小于line_poor_stop，表示很小的震荡或者趋势不明显，平仓。
+开平仓：采用威科夫动量计算，判断能量值，结合两条移动条，综合得出策略开仓平仓信号。
 
-已经在跑机器人，钉钉消息有几个值old_wave,Raw,Wave,Raw - wave。当Wave大于old_wave是趋势向上，反之趋势向下，Raw和Wave是两个移动线的值，Raw比Wave大是向上，反之向下，Raw - wave的绝对值大于line_poor就开仓，小于line_poor_stop就平仓。趋势相反了也平仓。
+仓位：注意不同的币最低下单量不低了5U。
 
-开仓：Wave大于old_wave且Raw - wave的绝对值大于line_poor开多,Wave不大于old_wave且Raw - wave的绝对值大于line_poor开空.
+止盈：目前，在LineWith.py的28行winPrice = entryPrice * 1.01，entryPrice为持仓价，当最新价大于winPrice止盈。
 
-平仓:多单，Wave不大于old_wave或Raw - wave小于line_poor_stop平仓;空单,Wave大于old_wave或Raw - wave小于line_poor_stop平空.
+止损：不存在的，浮亏就扛单，当有平仓信号时也不平仓。
 
-因为用tradingview回测，没看到平仓条件且还达到下单条件马上下单的效果，所以平仓后要跟完一根K线再判断是不是要下单。不会平仓的同时马上反方向下单。
+止盈后再开仓:在LineWith.py的35行self.order_flag = entryPrice * 0.985，entryPrice为上一次的持仓价， 在未出来平仓信号前，如果已经止盈了，当最新价低于entryPrice * 0.985，就又开一次仓。
 
-# tradingview回测最优配置(bnb0.02,eth0.003),这里每几天进行一次对比记录，方便参考
-
-## ETH:
-    2021-7-6 
-        line_poor=0.38,line_poor_stop=0.2(净利润24.79%，胜率40.74%);  
-        line_poor=0.626,line_poor_stop=0.5(净利润29.39%，胜率40.78%);
-        
-    2021-7-5 
-        line_poor=0.38,line_poor_stop=0.2(净利润25.17%，胜率40.9%);  
-        line_poor=0.626,line_poor_stop=0.5(净利润29.69%，胜率41.05%);
-
-## BNB:
-
-    2021-7-6 
-        line_poor=0.38,line_poor_stop=0.2(净利润23.92%，胜率42.35%);  
-        line_poor=0.04,line_poor_stop=0.05(净利润38.7%，胜率42.14%);
-        line_poor=0.04,line_poor_stop=0.048(净利润38.85%，胜率41.93%);
-        line_poor=0.053,line_poor_stop=0.048(净利润39.24%，胜率41.97%);
-        
-    2021-7-5 
-        line_poor=0.38,line_poor_stop=0.2(净利润25.23%，胜率42.59%);  
-        line_poor=0.04,line_poor_stop=0.05(净利润39.19%，胜率42.42%);
-        line_poor=0.04,line_poor_stop=0.048(净利润39.83%，胜率42.25%);
-        line_poor=0.053,line_poor_stop=0.048(净利润40.22%，胜率42.29%);
-        
-## 有开发能力，如有在不泄漏策略代码并能对策略进行使用或者回测方案的可以联系我。（注：同一币种，同一配置参数，同一时间周期开仓及平仓的时机所有人一样）
-
-## 以下为策略在tradingview采用15min线进行的回测(执行Start.py)
-BNB仓位0.02每单
-![](https://github.com/mn3711698/singlecoin/blob/main/BNB0.02.png)
-BNB仓位1每单
-![](https://github.com/mn3711698/singlecoin/blob/main/BNB1.png)
-ETH仓位0.003每单
-![](https://github.com/mn3711698/singlecoin/blob/main/ETH0.003.png)
-ETH仓位1每单
-![](https://github.com/mn3711698/singlecoin/blob/main/ETH1.png)
-BNB参数跑ETH仓位1每单
-![](https://github.com/mn3711698/singlecoin/blob/main/BNB1TOETH1.png)
-
-BNB仓位0.02每单最新
-![](https://github.com/mn3711698/singlecoin/blob/main/BNBnew.png)
-
-ETH仓位0.003每单最新
-![](https://github.com/mn3711698/singlecoin/blob/main/eth20210726.png)
-
-## 以下为策略在tradingview进行的回测(执行RunBTC.py)
-btcusdt
-![](https://github.com/mn3711698/singlecoin/blob/main/btcusdt.png)
-
-yfiusdt
-![](https://github.com/mn3711698/singlecoin/blob/main/yfiusdt.png)
-
-zecusdt
-![](https://github.com/mn3711698/singlecoin/blob/main/zecusdt.png)
+加仓: config.py里的add_pos_flag=1为开启加仓，add_pos_amount=0为不限制加仓次数，当add_pos_amount = 1，这个值大于0时，加仓次数等于这个值
 
 ## 本项目只是提供代码，不对使用者因使用本代码实际产生的盈亏负责。不要跟我说开源，我从来就没有想过要开源，只是开放使用。
 
@@ -93,45 +38,20 @@ zecusdt
 # 需要网络可以访问币安交易所，否则机器人无法使用
 
 ## windows使用说明(路径写死了)
-下载本项目代码压缩包，放在C盘根目录下，解压，最终代码在C:\singlecoin\下。如果是git下载，也请代码放在C:\singlecoin\下，建议使用git下载，方便后续更新
+如果会git就用git下载代码，不会就全按说明进行。
 
-先下载https://download.microsoft.com/download/5/f/7/5f7acaeb-8363-451f-9425-68a90f98b238/visualcppbuildtools_full.exe
-安装时，直接下一步，不需要选择其他的。
-
-安装相关库(只支持python3)  pip3 install -r requirements.txt 或 pip install -r requirements.txt
-
-填好config.py里边的配置项，确认python是不是64版本，如果使用的是python3.7要将RunUse里的TradeRun_w37.pyd重命名为TradeRun.pyd，
-strategies下的base_w37.pyd重命名为base.pyd,
-如果使用的是python3.8要将RunUse里的TradeRun_w38.pyd重命名为TradeRun.pyd,strategies下的base_w38.pyd重命名为base.pyd
-
-执行RunBTC.py将baseBTC_w37.pyd或base_w38.pyd重命名为baseBTC.pyd
-
-到此，准备工作做好。在项目目录C:\singlecoin\下执行python3 Start.py,就可以躺着赚钱了
+安装步骤请参考: mrm在windows系统安装部署说明.doc文件
 
 相关持仓及订单信息请看币安的网页或者APP对应的交易对下的数据。
 
-如果后续有更新代码，可以直接git下载就好了。下载好后，关掉cdm窗口，重新打开窗口执行python3 Start.py就好了
+如果后续有更新代码，可以直接git下载就好了。下载好后，关掉cdm窗口，重新打开窗口执行python3 Run.py就好了
 
 注意:持仓方向是单向(双向持仓要改为单向否则无法下单)，杠杆是交易所默认未进行另外设定
+
 ## linux使用说明(路径写死了)
-下载本项目代码压缩包，放在/var/games/目录下，解压，最终代码在/var/games/singlecoin/下。
+安装请看 mrm在linux系统安装部署说明.doc文件
 
-如果是git下载，也请代码放在/var/games/singlecoin/下，建议使用git下载，方便后续更新
-
-安装相关库(只支持python3)  pip3 install -r requirements.txt 或 pip install -r requirements.txt
-
-填好config.py里边的配置项，确认python版本为python3.6，
-要将RunUse里的TradeRun_l36.so重命名为TradeRun.so,strategies下的base_l36.so重命名为base.so
-
-到此所有准备工作都做好了。在项目目录/var/games/singlecoin/下执行python3 Start.py 或python Start.py ,就可以躺着赚钱了
-
-执行RunBTC.py将baseBTC_l36.so重命名为baseBTC.so
-
-相关持仓及订单信息请看币安的网页或者APP对应的交易对下的数据。
-
-建议使用Supervisor启动
-
-如果后续有更新代码，可以直接git下载就好了。重新执行python3 Start.py就好了
+如果后续有更新代码，可以直接git下载就好了。在/var/games/mrm目录下执行git pull就可以更新代码了。
 
 注意:持仓方向是单向(双向持仓要改为单向否则无法下单)，杠杆是交易所默认未进行另外设定
 
@@ -140,38 +60,10 @@ strategies下的base_w37.pyd重命名为base.pyd,
 
 # 更新日志
 
-2021-09-03 增加TV回测图片
-
-2021-09-03 增加一个策略。因为之前的策略空单交易好，多单不行，暂时没有想到办法优化，只能另搞一个策略。
-
-2021-07-08 将下单改为市价，避免与TV不同步导致不明亏损
-
-2021-07-08 优化多空不同处理参数(注释价格回撤止盈,可自行开启)
-
-2021-07-05 优化取消订单再次下单,应对浮盈回吐变浮亏，增加两级价格回撤止盈(可自行设定)
-
-2021-07-04 处理取消订单再次下单的bug
-
-2021-07-03 对下单未成交取消进行再次下单处理
-
-2021-07-02 简化策略，增加收益及减少亏损(重大更新)
-
-2021-06-28 修改策略和止盈止损处理(大更新)，策略是趋势策略，遇到震荡行情可以停用。
-
-2021-06-01 增加strategy_flag参数，此参数控制策略版本，20210601对原策略进行修改，增加一个版本，对空单进行优化开仓，下单量会更小.
-
-2021-05-20 修改配置文件参数排序,修改止盈止损位置的bug,增加新的配置参数tick_flag，提供多种止盈止损处理.
-
-2021-05-19 增加配置项适应新的止盈止损处理，修改止盈止损处理，增加版本记录，增加新的下单价格处理
-
-2021-05-17 增加止盈止损部分说明，增加亏损后加倍开单量的开关及处理代码
-
-2021-05-15  增加对策略运行消息是否发钉钉的控制，增加从交易所币最小值的查询适应所有币交易,增加提供配置参数
-
-2021-05-14  初始始上传
+2021-10-06  初始始上传
 
 
-# 联系(一定要加群,因为如果持仓情况与Tv的不同，那就肯定是亏损的)
+# 联系
 打开http://small.yjyzj.cn 可以扫码加开发者微信或微信群
 
 # 关于核心代码编译的说明
