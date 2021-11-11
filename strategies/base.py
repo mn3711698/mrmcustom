@@ -29,7 +29,7 @@ class Base:
         self.dingding = dingding
         self.bugcode = bugcode
         self.wx_send_msg = wx_send_msg
-        self.TradeRun = TradeRun()
+        self.TradeRun = TradeRun("无限制授权识别码")
         self.open_orders = []
         self.pos = 0
         self.pos_flag = 0
