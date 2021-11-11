@@ -10,7 +10,7 @@ from datetime import datetime
 import pandas as pd
 from utils.brokers import Broker
 from getaway.binance_http import OrderSide, OrderType
-from constant.constant import (EVENT_POS, EVENT_TICKER, EVENT_KLINE, EVENT_DEPTH)
+from constant.constant import (EVENT_POS, EVENT_TICKER, EVENT_KLINE, EVENT_DEPTH, EVENT_KLINE_VL)
 from utils.event import Event
 from utils.utility import round_to, save_json, load_json
 from getaway.send_msg import dingding, bugcode, wx_send_msg
@@ -69,6 +69,7 @@ class Base:
         self.broker.event_engine.register(EVENT_KLINE, self.on_kline)
         self.broker.event_engine.register(EVENT_TICKER, self.on_ticker)
         self.broker.event_engine.register(EVENT_DEPTH, self.on_depth)
+        self.broker.event_engine.register(EVENT_KLINE_VL, self.on_kline_vl)
 
     def on_pos(self, event: Event):
         try:
@@ -86,6 +87,21 @@ class Base:
         try:
             data = event.data['data']
             self.on_kline_data(data)
+        except:
+            self.dingding("有故障，请联系作者共同处理", self.symbol)
+            self.bugcode(traceback, 'mrmcustom_on_kline')
+
+    def on_kline_vl(self, event: Event):
+        try:
+            symbol = event.data['symbol']
+            data = event.data['data']
+            sold = event.data['sold']
+            bought = event.data['bought']
+            sold_bar = event.data['sold_bar']
+            bought_bar = event.data['bought_bar']
+            interval = event.data['interval']
+            contrast = event.data['contrast']
+            self.on_kline_data_vl(symbol, data, sold, bought, sold_bar, bought_bar, contrast, interval)
         except:
             self.dingding("有故障，请联系作者共同处理", self.symbol)
             self.bugcode(traceback, 'mrmcustom_on_kline')
@@ -186,6 +202,94 @@ class Base:
         df = self.dataframe_mr(now_data)  # [::-1]
         buy_signal, sell_signal = self.TradeRun.calculate_data(self.sold, self.bought,
                                                                self.sold_bar, self.bought_bar, df)
+        if buy_signal:
+            if self.pos > 0:
+                if self.add_pos_flag == 0:
+                    msg = f"多单信号,持仓中,机器人运行中,如需开启加仓，请进行配置"
+                    self.dingding(msg, self.symbol)
+                    HYJ_jd_first = f'{self.symbol},开仓信号,持仓中'
+                    HYJ_jd_tradeType = '持仓'
+                    HYJ_jd_curAmount = f'{self.enter_price}'
+                    HYJ_jd_remark = f'开仓信号，当前仓位,{self.pos}'
+                    self.wx_send_msg(HYJ_jd_first, HYJ_jd_tradeType, HYJ_jd_curAmount, HYJ_jd_remark)
+                elif self.add_pos_flag == 1:
+                    add_pos_dicts = self.redisc.get(f'{self.symbol}_addpos')
+                    if add_pos_dicts:
+                        addpos = int(add_pos_dicts.decode("utf8"))
+                        if 0 < addpos <= self.add_pos_amount:
+                            eprice = self.ask
+                            tradingsize = self.add_size
+                            res_buy = self.buy(eprice, tradingsize, mark=True)
+                            self.dingding(f'加仓返回:{res_buy}', self.symbol)
+                            HYJ_jd_first = f'{self.symbol},开仓信号'
+                            HYJ_jd_tradeType = '加仓'
+                            HYJ_jd_curAmount = f'{eprice}'
+                            HYJ_jd_remark = f'所加仓位:{tradingsize}'
+                            if "code" in res_buy:
+                                HYJ_jd_remark += f'{res_buy}'
+                            else:
+                                self.redisc.set(f'{self.symbol}_addpos', addpos + 1)
+                            self.wx_send_msg(HYJ_jd_first, HYJ_jd_tradeType, HYJ_jd_curAmount, HYJ_jd_remark)
+                else:
+                    msg = f"加仓参数配置有误"
+                    self.dingding(msg, self.symbol)
+                return
+            self.redisc.set(f'{self.symbol}_jdss', 1)
+            enter_price = self.ask
+            self.pos = self.round_to(self.trading_size, self.min_volume)
+            res_buy = self.buy(enter_price, abs(self.pos), mark=True)
+            self.order_flag = enter_price * self.fill_amount
+            self.enter_price = enter_price
+            self.high_price = enter_price
+            self.low_price = enter_price
+            self.maxunRealizedProfit = 0
+            self.unRealizedProfit = 0
+            self.lowProfit = 0
+            self.pos_update_time = datetime.now()
+            HYJ_jd_first = f"交易对:{self.symbol},仓位:{self.pos}"
+            HYJ_jd_tradeType = "开多"
+            HYJ_jd_curAmount = f"{enter_price}"
+            HYJ_jd_remark = f"最新价:{self.last_price}"
+            self.dingding(f"开多交易所返回:{res_buy}", self.symbol)
+            self.wx_send_msg(HYJ_jd_first, HYJ_jd_tradeType, HYJ_jd_curAmount, HYJ_jd_remark)
+        if sell_signal:
+            self.redisc.set(f'{self.symbol}_jdss', 0)
+            if self.pos == 0:
+                msg = f"无持仓，平多机器人运行中"
+                self.dingding(msg, self.symbol)
+                HYJ_jd_first = f'{self.symbol}平仓信号，无持仓'
+                HYJ_jd_tradeType = '空仓'
+                HYJ_jd_curAmount = f'{self.last_price}'
+                HYJ_jd_remark = f'平仓信号，无持仓,{self.pos}'
+                self.wx_send_msg(HYJ_jd_first, HYJ_jd_tradeType, HYJ_jd_curAmount, HYJ_jd_remark)
+                return
+            enter_price = self.bid2
+            Profit = self.round_to((enter_price - self.enter_price) * abs(self.pos), self.min_price)
+            res_sell = self.sell(enter_price, abs(self.pos), mark=True)
+            HYJ_jd_first = "平仓信号:交易对:%s,最大亏损:%s,最大利润:%s,当前利润:%s,仓位:%s" % (
+                self.symbol, self.lowProfit, self.maxunRealizedProfit, self.unRealizedProfit, self.pos)
+            self.pos = 0
+            HYJ_jd_tradeType = "平多"
+            HYJ_jd_curAmount = "%s" % enter_price
+            HYJ_jd_remark = "平多:%s,最新价:%s,最高价:%s,最低价:%s" % (
+                Profit, self.last_price, self.high_price, self.low_price)
+            self.enter_price = 0
+            self.high_price = 0
+            self.low_price = 0
+            self.maxunRealizedProfit = 0
+            self.unRealizedProfit = 0
+            self.lowProfit = 0
+            self.dingding(f"平多,交易所返回:{res_sell}", self.symbol)
+            self.wx_send_msg(HYJ_jd_first, HYJ_jd_tradeType, HYJ_jd_curAmount, HYJ_jd_remark)
+
+        if not buy_signal and not sell_signal and self.tactics_flag == 3:
+            msg = f"机器人运行中,持仓:{self.pos}"
+            self.dingding(msg, self.symbol)
+
+    def on_kline_data_vl(self, symbol, data, sold, bought, sold_bar, bought_bar, contrast, interval):
+        now_data = data[:-1]
+        df = self.dataframe_mr(now_data)  # [::-1]
+        buy_signal, sell_signal = self.TradeRun.calculate_data_vl(sold, bought, sold_bar, bought_bar, contrast, df)
 
         if buy_signal:
             if self.pos > 0:

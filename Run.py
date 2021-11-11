@@ -8,7 +8,7 @@ import logging
 from apscheduler.schedulers.background import BlockingScheduler
 from utils.brokers import Broker
 from getaway.binance_http import Interval, BinanceFutureHttp
-from constant.constant import (EVENT_POS, EVENT_KLINE)
+from constant.constant import (EVENT_POS, EVENT_KLINE, EVENT_KLINE_VL)
 from utils.event import EventEngine, Event
 from strategies.LineWith import LineWith
 from config import key, secret, trading_size, symbol
@@ -51,11 +51,32 @@ class Trade:
 
     def get_kline_data(self):
 
-        data = self.broker.binance_http.get_kline(symbol=self.symbol, interval=Interval.MINUTE_1, limit=100)
+        data = self.broker.binance_http.get_kline(symbol=self.symbol, interval=Interval.MINUTE_1, limit=99)
         if len(data):
             kline_time = data[-1][0]
             if kline_time != self.kline_time:
                 event = Event(EVENT_KLINE, {'symbol': self.symbol, "data": data})
+                self.broker.event_engine.put(event)
+                self.kline_time = kline_time
+
+    def get_kline_data_vl(self):
+
+        data = self.broker.binance_http.get_kline(symbol=self.symbol, interval=Interval.MINUTE_1, limit=99)
+        if len(data):
+            kline_time = data[-1][0]
+            if kline_time != self.kline_time:
+                # DOGEUSDT 上边是1min,参考mrmv的symbol_metas.json及AbstractTradeRun
+                sold = 21
+                bought = 78
+                sold_bar = 5
+                bought_bar = 10
+                interval = '1min'
+                contrast = -1
+                edata = {'symbol': symbol, "data": data, "sold": sold, "bought": bought,
+                         "sold_bar": sold_bar, "bought_bar": bought_bar, 'interval': interval,
+                         "contrast": contrast
+                         }
+                event = Event(EVENT_KLINE_VL, edata)
                 self.broker.event_engine.put(event)
                 self.kline_time = kline_time
 
